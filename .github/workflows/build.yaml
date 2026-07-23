@@ -162,3 +162,36 @@ jobs:
         asset_name: ${{ env.OUTPUT_FILE }}.sha256
         tag: ${{ github.ref }}
         overwrite: true
+
+  itch_publish_job:
+    needs: [build]
+    if: ${{ startsWith(github.event.ref, 'refs/tags/')}}
+
+    runs-on: ubuntu-latest
+
+    env:
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+
+    steps:
+      - name: Install butler
+        run: |
+          curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip butler.zip
+
+          chmod +x butler
+
+          ./butler -V
+
+      - name: Download Artifacts
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: 'owner/repo'
+          tag: ${{ github.ref }}
+          fileName: '*.tgz *.zip'
+          out-file-path: downloads
+
+      - name: Upload build
+        run: |
+          for file in downloads/*; do
+            ./butler push "$file" elanis/tsom:$(filename $file)
+          done
